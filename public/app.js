@@ -1,0 +1,37 @@
+const socket = io();
+const $ = id => document.getElementById(id);
+let myName = localStorage.getItem("vyracord-name") || "Visitante";
+let currentRoom = "geral", localStream = null, screenStream = null, inVoice = false;
+const peers = new Map();
+const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+$("profileName").textContent = myName; $("memberMe").textContent = myName;
+function toast(msg){$("toast").textContent=msg;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2400)}
+function updateCounts(n){$("memberCount").textContent=`${n} online`;$("memberTotal").textContent=n}
+function addMessage(m){const row=document.createElement("div");row.className="message";const av=document.createElement("div");av.className="avatar";av.textContent=(m.name||"?").slice(0,1).toUpperCase();const body=document.createElement("div");body.className="message-body";const head=document.createElement("div");head.className="message-head";head.textContent=m.name;const time=document.createElement("time");time.textContent=m.time||"";head.append(time);const text=document.createElement("div");text.className="message-text";text.textContent=m.text;body.append(head,text);row.append(av,body);$("messages").append(row);$("messages").scrollTop=$("messages").scrollHeight}
+function joinRoom(room){currentRoom=room;$("channelTitle").textContent="# "+room;$("welcomeChannel").textContent="#"+room;$("messageInput").placeholder="Enviar mensagem em #"+room;$("messages").innerHTML="";document.querySelectorAll(".channel").forEach(b=>b.classList.toggle("selected",b.dataset.channel===room));socket.emit("join-room",{room,name:myName})}
+document.querySelectorAll(".channel").forEach(b=>b.addEventListener("click",()=>joinRoom(b.dataset.channel)));
+$("chatForm").addEventListener("submit",e=>{e.preventDefault();const v=$("messageInput").value.trim();if(v){socket.emit("chat-message",v);$("messageInput").value=""}});
+socket.on("chat-message",addMessage);socket.on("member-count",updateCounts);
+socket.on("room-state",({room,peers:list})=>{const wrap=$("peerList");wrap.innerHTML="";list.forEach(p=>addPeer(p));updateCounts(list.length+1)});
+function addPeer(p){const el=document.createElement("div");el.className="member";el.id="member-"+p.id;const av=document.createElement("div");av.className="avatar";av.textContent=p.name.slice(0,1).toUpperCase();const name=document.createElement("span");name.textContent=p.name;el.append(av,name);$("peerList").append(el)}
+socket.on("peer-joined",p=>{addPeer(p);toast(p.name+" entrou no canal")});
+socket.on("peer-left",({id})=>{document.getElementById("member-"+id)?.remove();closePeer(id)});
+async function getPeer(id){if(peers.has(id))return peers.get(id);const pc=new RTCPeerConnection(config);peers.set(id,pc);if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));pc.onicecandidate=e=>{if(e.candidate)socket.emit("ice-candidate",{to:id,data:e.candidate})};pc.ontrack=e=>{let audio=document.getElementById("audio-"+id);if(!audio){audio=document.createElement("audio");audio.id="audio-"+id;audio.autoplay=true;document.body.append(audio)}audio.srcObject=e.streams[0]};pc.onconnectionstatechange=()=>{if(["failed","closed","disconnected"].includes(pc.connectionState))closePeer(id)};return pc}
+async function callPeer(id){const pc=await getPeer(id);const offer=await pc.createOffer();await pc.setLocalDescription(offer);socket.emit("offer",{to:id,data:offer})}
+socket.on("offer",async({from,data})=>{if(!inVoice)return;const pc=await getPeer(from);await pc.setRemoteDescription(data);const answer=await pc.createAnswer();await pc.setLocalDescription(answer);socket.emit("answer",{to:from,data:answer})});
+socket.on("answer",async({from,data})=>{const pc=peers.get(from);if(pc)await pc.setRemoteDescription(data)});
+socket.on("ice-candidate",async({from,data})=>{const pc=peers.get(from);if(pc)try{await pc.addIceCandidate(data)}catch(e){}});
+function closePeer(id){const pc=peers.get(id);if(pc)pc.close();peers.delete(id);document.getElementById("audio-"+id)?.remove()}
+function setCallUI(on){inVoice=on;$("callbar").classList.toggle("connected",on);$("voiceStatus").textContent=on?"Conectado à sala de voz":"Desconectado";$("callMessage").textContent=on?"Você está conectado":"Conecte-se para conversar";["micBtn","cameraBtn","screenBtn","fullscreenCallBtn","leaveBtn"].forEach(id=>$(id).disabled=!on);$("voiceJoin").innerHTML=on?"◖　Sala de voz <small>Conectado</small>":"◖　Sala de voz <small>Entrar</small>"}
+$("voiceJoin").onclick=async()=>{if(inVoice){await leaveVoice();return}try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});setCallUI(true);socket.emit("join-room",{room:currentRoom,name:myName});toast("Microfone conectado");setTimeout(()=>{for(const id of peers.keys())callPeer(id)},350)}catch(e){toast("Não foi possível acessar o microfone. Verifique as permissões do navegador.")}};
+$("leaveBtn").onclick=leaveVoice;
+async function leaveVoice(){if(screenStream){screenStream.getTracks().forEach(t=>t.stop());screenStream=null}peers.forEach((pc,id)=>closePeer(id));if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}setCallUI(false);$("micBtn").classList.remove("active");$("cameraBtn").classList.remove("active");$("screenBtn").classList.remove("active");toast("Você saiu da chamada")}
+$("micBtn").onclick=()=>{if(!localStream)return;const t=localStream.getAudioTracks()[0];if(t){t.enabled=!t.enabled;$("micBtn").classList.toggle("active",!t.enabled);toast(t.enabled?"Microfone ligado":"Microfone mutado")}};
+$("cameraBtn").onclick=async()=>{try{if(!localStream)return;let track=localStream.getVideoTracks()[0];if(track){track.enabled=!track.enabled;$("cameraBtn").classList.toggle("active",track.enabled);return}const cam=await navigator.mediaDevices.getUserMedia({video:true});track=cam.getVideoTracks()[0];localStream.addTrack(track);for(const pc of peers.values())pc.addTrack(track,localStream);$("cameraBtn").classList.add("active");toast("Câmera ligada")}catch(e){toast("Não foi possível acessar a câmera")}};
+$("screenBtn").onclick=async()=>{try{if(screenStream){screenStream.getTracks().forEach(t=>t.stop());screenStream=null;$("screenBtn").classList.remove("active");return}screenStream=await navigator.mediaDevices.getDisplayMedia({video:true});const track=screenStream.getVideoTracks()[0];for(const pc of peers.values()){const sender=pc.getSenders().find(s=>s.track?.kind==="video");if(sender)await sender.replaceTrack(track);else pc.addTrack(track,screenStream)}$("screenBtn").classList.add("active");track.onended=()=>{$("screenBtn").classList.remove("active");screenStream=null};toast("Compartilhamento iniciado")}catch(e){toast("Compartilhamento cancelado")}};
+async function fullscreen(){try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(e){toast("Tela cheia não disponível neste navegador")}}
+$("fullscreenBtn").onclick=fullscreen;$("fullscreenCallBtn").onclick=fullscreen;
+$("settingsBtn").onclick=()=>{$("nameInput").value=myName;$("nameModal").classList.remove("hidden")};
+$("nameForm").onsubmit=e=>{e.preventDefault();myName=$("nameInput").value.trim()||"Visitante";localStorage.setItem("vyracord-name",myName);$("profileName").textContent=myName;$("memberMe").textContent=myName;$("nameModal").classList.add("hidden");joinRoom(currentRoom)};
+joinRoom("geral");setCallUI(false);

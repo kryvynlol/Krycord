@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vyracord — Comunidade</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="servers">
+    <div class="server active">V</div><div class="server">✦</div><div class="server">＋</div>
+  </aside>
+  <aside class="sidebar">
+    <div class="brand">vyracord<span>web</span></div>
+    <div class="server-name">Minha comunidade <span>⌄</span></div>
+    <div class="section-label">CANAIS DE TEXTO</div>
+    <button class="channel selected" data-channel="geral">#　geral</button>
+    <button class="channel" data-channel="memes">#　memes</button>
+    <div class="section-label voice-label">CANAIS DE VOZ</div>
+    <button class="voice-channel" id="voiceJoin">◖　Sala de voz <small>Entrar</small></button>
+    <div class="voice-status" id="voiceStatus">Desconectado</div>
+    <div class="profile">
+      <div class="avatar me">V</div><div class="profile-name"><b id="profileName">Visitante</b><small>Online</small></div>
+      <button class="icon-btn" id="settingsBtn" title="Editar nome">⚙</button>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div><b id="channelTitle"># geral</b><span class="topic">Bem-vindo ao servidor!</span></div><div class="top-actions"><span id="memberCount">1 online</span><button class="icon-btn" id="fullscreenBtn" title="Tela cheia">⛶</button></div></header>
+    <div class="content">
+      <section class="chat-panel">
+        <div class="welcome"><div class="welcome-icon">#</div><h1>Bem-vindo ao canal!</h1><p>Este é o começo de <b id="welcomeChannel">#geral</b>.</p></div>
+        <div class="messages" id="messages"></div>
+        <form class="composer" id="chatForm"><button type="button" class="plus">＋</button><input id="messageInput" autocomplete="off" placeholder="Enviar mensagem em #geral"><button class="send" type="submit">➤</button></form>
+      </section>
+      <aside class="members"><div class="section-label">MEMBROS — <span id="memberTotal">1</span></div><div class="member"><div class="avatar me">V</div><span id="memberMe">Visitante</span><i></i></div><div id="peerList"></div></aside>
+    </div>
+    <section class="callbar" id="callbar">
+      <div class="call-info"><div class="call-indicator"></div><div><b>Sala de voz</b><small id="callMessage">Conecte-se para conversar</small></div></div>
+      <div class="call-controls">
+        <button id="micBtn" title="Microfone" disabled>🎙</button>
+        <button id="cameraBtn" title="Câmera" disabled>▣</button>
+        <button id="screenBtn" title="Compartilhar tela" disabled>▤</button>
+        <button id="fullscreenCallBtn" title="Tela cheia" disabled>⛶</button>
+        <button id="leaveBtn" class="leave" title="Desconectar" disabled>☎</button>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="modal hidden" id="nameModal"><form class="modal-card" id="nameForm"><h2>Seu perfil</h2><p>Como você quer aparecer no servidor?</p><input id="nameInput" maxlength="24" placeholder="Seu nome"><button class="primary">Salvar</button></form></div>
+<div class="toast" id="toast"></div>
+<script src="/socket.io/socket.io.js"></script><script src="app.js"></script>
+</body></html>

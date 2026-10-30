@@ -1,0 +1,11 @@
+{
+  "name": "discord-web-novo",
+  "version": "1.0.0",
+  "description": "Chat de comunidades com chamadas WebRTC",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
